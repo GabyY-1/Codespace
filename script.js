@@ -92,7 +92,7 @@ function renderFiles() {
 }
 
 function selectFile(name) {
-  if (!workspace.files[name]) return;
+  if (!(name in workspace.files)) return;
 
   currentFile = name;
   currentFileEl.textContent = name;

@@ -1,172 +1,196 @@
-const STORAGE_KEY = "codespace_projects";
+const STORAGE_KEY = "codespace_workspace";
 
-let projects = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-let currentId = null;
-let currentFile = "html";
+const defaultWorkspace = {
+  name: "Mon espace",
+  files: {
+    "index.html": "<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Mon site</title>\n</head>\n<body>\n  <h1>Bonjour Codespace</h1>\n</body>\n</html>",
+    "style.css": "body {\n  font-family: Arial, sans-serif;\n  padding: 40px;\n}\n",
+    "script.js": "console.log('Codespace');\n"
+  }
+};
 
-const projectsEl = document.getElementById("projects");
-const projectCount = document.getElementById("projectCount");
-const projectTitle = document.getElementById("projectTitle");
-const emptyState = document.getElementById("emptyState");
-const editorArea = document.getElementById("editorArea");
+let workspace = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null") || defaultWorkspace;
+let currentFile = Object.keys(workspace.files)[0];
+
+const filesEl = document.getElementById("files");
 const codeEditor = document.getElementById("codeEditor");
+const currentFileEl = document.getElementById("currentFile");
 const preview = document.getElementById("preview");
-const modal = document.getElementById("modal");
-const projectName = document.getElementById("projectName");
+const fileModal = document.getElementById("fileModal");
+const fileName = document.getElementById("fileName");
+const renameModal = document.getElementById("renameModal");
+const workspaceName = document.getElementById("workspaceName");
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
 }
 
-function renderProjects() {
-  projectCount.textContent = projects.length + (projects.length > 1 ? " projets" : " projet");
-  projectsEl.innerHTML = "";
+function renderFiles() {
+  filesEl.innerHTML = "";
 
-  projects.forEach(project => {
-    const item = document.createElement("button");
-    item.className = "project-item" + (project.id === currentId ? " selected" : "");
-    item.innerHTML = "<strong>" + escapeHtml(project.name) + "</strong><span>HTML · CSS · JS</span>";
-    item.addEventListener("click", () => selectProject(project.id));
-    projectsEl.appendChild(item);
+  Object.keys(workspace.files).forEach(name => {
+    const button = document.createElement("button");
+    button.className = "file" + (name === currentFile ? " active" : "");
+    button.textContent = name;
+    button.addEventListener("click", () => selectFile(name));
+    filesEl.appendChild(button);
   });
 }
 
-function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, char => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[char]));
-}
-
-function createProject(name) {
-  const project = {
-    id: Date.now().toString(),
-    name,
-    files: {
-      html: "<!DOCTYPE html>\n<html>\n<head>\n  <title>Mon projet</title>\n</head>\n<body>\n  <h1>Bonjour Codespace</h1>\n</body>\n</html>",
-      css: "body {\n  font-family: Arial, sans-serif;\n  padding: 40px;\n}\n",
-      js: "console.log('Codespace');\n"
-    }
-  };
-
-  projects.unshift(project);
-  save();
-  selectProject(project.id);
-  closeModal();
-}
-
-function selectProject(id) {
-  currentId = id;
-  currentFile = "html";
-  const project = projects.find(item => item.id === id);
-  if (!project) return;
-
-  emptyState.classList.add("hidden");
-  editorArea.classList.remove("hidden");
-  projectTitle.textContent = project.name;
-  updateEditor();
-  renderProjects();
-  updatePreview();
-}
-
-function updateEditor() {
-  const project = projects.find(item => item.id === currentId);
-  if (!project) return;
-  codeEditor.value = project.files[currentFile];
-  document.querySelectorAll(".file").forEach(button => {
-    button.classList.toggle("active", button.dataset.file === currentFile);
-  });
+function selectFile(name) {
+  if (!workspace.files[name]) return;
+  currentFile = name;
+  currentFileEl.textContent = name;
+  codeEditor.value = workspace.files[name];
+  renderFiles();
 }
 
 function updatePreview() {
-  const project = projects.find(item => item.id === currentId);
-  if (!project) return;
+  const htmlName = Object.keys(workspace.files).find(name => name.toLowerCase() === "index.html");
+  if (!htmlName) {
+    preview.srcdoc = "<p style='font-family:Arial;padding:30px'>Ajoute un fichier index.html pour afficher l'aperçu.</p>";
+    return;
+  }
 
-  const html = project.files.html;
-  const css = "<style>" + project.files.css + "</style>";
-  const script = "<script>" + project.files.js.replace(/<\/script>/gi, "<\\/script>") + "<\/script>";
-  const source = html.replace("</head>", css + "</head>").replace("</body>", script + "</body>");
+  let source = workspace.files[htmlName];
+
+  const css = Object.entries(workspace.files)
+    .filter(([name]) => name.toLowerCase().endsWith(".css"))
+    .map(([, content]) => "<style>" + content + "</style>")
+    .join("");
+
+  const js = Object.entries(workspace.files)
+    .filter(([name]) => name.toLowerCase().endsWith(".js"))
+    .map(([, content]) => "<script>" + content.replace(/<\/script>/gi, "<\\/script>") + "<\/script>")
+    .join("");
+
+  if (source.includes("</head>")) source = source.replace("</head>", css + "</head>");
+  else source = css + source;
+
+  if (source.includes("</body>")) source = source.replace("</body>", js + "</body>");
+  else source += js;
 
   preview.srcdoc = source;
 }
 
-function openModal() {
-  modal.classList.remove("hidden");
-  projectName.value = "";
-  projectName.focus();
+function openFileModal() {
+  fileModal.classList.remove("hidden");
+  fileName.value = "";
+  fileName.focus();
 }
 
-function closeModal() {
-  modal.classList.add("hidden");
+function closeFileModal() {
+  fileModal.classList.add("hidden");
 }
 
-document.getElementById("newProject").addEventListener("click", openModal);
-document.getElementById("addProject").addEventListener("click", openModal);
-document.getElementById("emptyCreate").addEventListener("click", openModal);
-document.getElementById("cancelModal").addEventListener("click", closeModal);
+function createFile() {
+  const name = fileName.value.trim();
+  if (!name) return;
 
-document.getElementById("createProject").addEventListener("click", () => {
-  const name = projectName.value.trim();
-  if (name) createProject(name);
-});
-
-projectName.addEventListener("keydown", event => {
-  if (event.key === "Enter") {
-    const name = projectName.value.trim();
-    if (name) createProject(name);
+  if (!/\.(html?|css|js)$/i.test(name)) {
+    alert("Le fichier doit être en .html, .css ou .js.");
+    return;
   }
-});
 
-document.querySelectorAll(".file").forEach(button => {
-  button.addEventListener("click", () => {
-    currentFile = button.dataset.file;
-    updateEditor();
-  });
+  if (workspace.files[name]) {
+    alert("Ce fichier existe déjà.");
+    return;
+  }
+
+  workspace.files[name] = "";
+  currentFile = name;
+  save();
+  renderFiles();
+  selectFile(name);
+  closeFileModal();
+}
+
+document.getElementById("addFile").addEventListener("click", openFileModal);
+document.getElementById("quickAdd").addEventListener("click", openFileModal);
+document.getElementById("cancelFile").addEventListener("click", closeFileModal);
+document.getElementById("createFile").addEventListener("click", createFile);
+
+fileName.addEventListener("keydown", event => {
+  if (event.key === "Enter") createFile();
 });
 
 codeEditor.addEventListener("input", () => {
-  const project = projects.find(item => item.id === currentId);
-  if (!project) return;
-  project.files[currentFile] = codeEditor.value;
+  workspace.files[currentFile] = codeEditor.value;
   save();
   updatePreview();
 });
 
-document.getElementById("runProject").addEventListener("click", updatePreview);
 document.getElementById("refreshPreview").addEventListener("click", updatePreview);
 
-document.getElementById("deleteProject").addEventListener("click", () => {
-  if (!currentId) return;
-  projects = projects.filter(project => project.id !== currentId);
-  currentId = null;
+document.getElementById("deleteFile").addEventListener("click", () => {
+  const names = Object.keys(workspace.files);
+  if (names.length <= 1) {
+    alert("Un workspace doit garder au moins un fichier.");
+    return;
+  }
+
+  delete workspace.files[currentFile];
+  currentFile = Object.keys(workspace.files)[0];
   save();
-  renderProjects();
-  projectTitle.textContent = "Aucun projet";
-  editorArea.classList.add("hidden");
-  emptyState.classList.remove("hidden");
+  renderFiles();
+  selectFile(currentFile);
+  updatePreview();
 });
 
-document.getElementById("exportProject").addEventListener("click", () => {
-  const project = projects.find(item => item.id === currentId);
-  if (!project) return;
+document.getElementById("renameProject").addEventListener("click", () => {
+  workspaceName.value = workspace.name;
+  renameModal.classList.remove("hidden");
+  workspaceName.focus();
+});
 
-  const files = [
-    ["index.html", project.files.html],
-    ["style.css", project.files.css],
-    ["script.js", project.files.js]
-  ];
+document.getElementById("cancelRename").addEventListener("click", () => {
+  renameModal.classList.add("hidden");
+});
 
-  files.forEach(([name, content]) => {
+document.getElementById("saveRename").addEventListener("click", () => {
+  const name = workspaceName.value.trim();
+  if (!name) return;
+  workspace.name = name;
+  document.getElementById("projectTitle").textContent = name;
+  save();
+  renameModal.classList.add("hidden");
+});
+
+workspaceName.addEventListener("keydown", event => {
+  if (event.key === "Enter") document.getElementById("saveRename").click();
+});
+
+document.getElementById("resetProject").addEventListener("click", () => {
+  if (!confirm("Supprimer tous les fichiers de ce workspace ?")) return;
+  workspace.files = { "index.html": "" };
+  currentFile = "index.html";
+  save();
+  renderFiles();
+  selectFile(currentFile);
+  updatePreview();
+});
+
+document.getElementById("exportProject").addEventListener("click", async () => {
+  for (const [name, content] of Object.entries(workspace.files)) {
     const blob = new Blob([content], { type: "text/plain" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = name;
     link.click();
     URL.revokeObjectURL(link.href);
-  });
+    await new Promise(resolve => setTimeout(resolve, 80));
+  }
 });
 
-modal.addEventListener("click", event => {
-  if (event.target === modal) closeModal();
+fileModal.addEventListener("click", event => {
+  if (event.target === fileModal) closeFileModal();
 });
 
-renderProjects();
+renameModal.addEventListener("click", event => {
+  if (event.target === renameModal) renameModal.classList.add("hidden");
+});
+
+document.getElementById("projectTitle").textContent = workspace.name;
+renderFiles();
+selectFile(currentFile);
+updatePreview();

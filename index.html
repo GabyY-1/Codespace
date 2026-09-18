@@ -8,70 +8,119 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#">Codespace</a>
+    <div class="brand-area">
+      <a class="brand" href="#">Codespace</a>
+      <span class="brand-separator">/</span>
+      <span class="brand-workspace" id="topWorkspaceName">Mon espace</span>
+    </div>
+
     <div class="top-actions">
-      <button id="addFile">Nouveau fichier</button>
-      <button id="exportProject">Exporter</button>
+      <button id="addFile">+ Fichier</button>
+      <button id="exportProject" class="primary">Exporter</button>
     </div>
   </header>
 
   <main class="workspace">
-    <section class="project-head">
+    <section class="workspace-head">
       <div>
         <span class="eyebrow">Workspace</span>
-        <h1 id="projectTitle">Mon espace</h1>
+        <div class="title-row">
+          <h1 id="projectTitle">Mon espace</h1>
+          <button id="renameProject" class="icon-button" aria-label="Renommer le workspace">✎</button>
+        </div>
       </div>
-      <div class="project-actions">
-        <button id="renameProject">Renommer</button>
-        <button id="resetProject" class="danger">Tout supprimer</button>
+
+      <div class="workspace-meta">
+        <span id="fileCount">3 fichiers</span>
+        <span class="dot"></span>
+        <span>HTML / CSS / JS</span>
       </div>
     </section>
 
     <section class="editor-area">
       <aside class="file-sidebar">
         <div class="file-head">
-          <span>Fichiers</span>
-          <button id="quickAdd" aria-label="Ajouter un fichier">+</button>
+          <div>
+            <span class="section-title">EXPLORATEUR</span>
+            <span id="fileCountSide">3 fichiers</span>
+          </div>
+          <button id="quickAdd" class="icon-button" aria-label="Ajouter un fichier">+</button>
         </div>
         <div id="files" class="files"></div>
       </aside>
 
-      <div class="code-panel">
-        <div class="code-head">
-          <span id="currentFile">index.html</span>
-          <button id="deleteFile" class="delete-file">Supprimer</button>
-        </div>
-        <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
-      </div>
+      <section class="editor-panel">
+        <div class="tabs" id="tabs"></div>
 
-      <div class="preview-panel">
+        <div class="editor-toolbar">
+          <span id="currentFile">index.html</span>
+          <div class="editor-actions">
+            <span id="saveState">Enregistré</span>
+            <button id="deleteFile" class="subtle-danger">Supprimer</button>
+          </div>
+        </div>
+
+        <div class="editor-wrap">
+          <div class="line-numbers" id="lineNumbers">1</div>
+          <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
+        </div>
+
+        <div class="statusbar">
+          <span id="languageLabel">HTML</span>
+          <span>Espaces: 2</span>
+          <span id="cursorPosition">Ln 1, Col 1</span>
+        </div>
+      </section>
+
+      <section class="preview-panel">
         <div class="preview-head">
-          <span>Aperçu</span>
-          <button id="refreshPreview">↻</button>
+          <div class="preview-title">
+            <span class="live-dot"></span>
+            <span>Aperçu en direct</span>
+          </div>
+          <button id="refreshPreview" class="icon-button" aria-label="Actualiser l'aperçu">↻</button>
         </div>
         <iframe id="preview" title="Aperçu du projet"></iframe>
-      </div>
+      </section>
     </section>
+
+    <div class="bottom-actions">
+      <button id="resetProject" class="danger">Tout supprimer</button>
+      <span>Les fichiers sont sauvegardés automatiquement dans ce navigateur.</span>
+    </div>
   </main>
 
   <div id="fileModal" class="modal hidden">
     <div class="modal-card">
-      <h2>Nouveau fichier</h2>
-      <p>Ajoute un fichier HTML, CSS ou JavaScript.</p>
-      <input id="fileName" maxlength="80" placeholder="exemple.html">
+      <div class="modal-top">
+        <div>
+          <span class="modal-label">Fichier</span>
+          <h2>Nouveau fichier</h2>
+        </div>
+        <button id="cancelFile" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <p>Crée un fichier HTML, CSS ou JavaScript dans ton workspace.</p>
+      <label for="fileName">Nom du fichier</label>
+      <input id="fileName" maxlength="80" autocomplete="off" placeholder="exemple.html">
       <div class="modal-actions">
-        <button id="cancelFile">Annuler</button>
-        <button id="createFile" class="primary">Créer</button>
+        <button id="createFile" class="primary">Créer le fichier</button>
       </div>
     </div>
   </div>
 
   <div id="renameModal" class="modal hidden">
     <div class="modal-card">
-      <h2>Nom du workspace</h2>
-      <input id="workspaceName" maxlength="40" placeholder="Mon espace">
+      <div class="modal-top">
+        <div>
+          <span class="modal-label">Workspace</span>
+          <h2>Renommer</h2>
+        </div>
+        <button id="cancelRename" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <p>Choisis le nom affiché dans Codespace.</p>
+      <label for="workspaceName">Nom</label>
+      <input id="workspaceName" maxlength="40" autocomplete="off" placeholder="Mon espace">
       <div class="modal-actions">
-        <button id="cancelRename">Annuler</button>
         <button id="saveRename" class="primary">Enregistrer</button>
       </div>
     </div>

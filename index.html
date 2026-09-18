@@ -10,72 +10,69 @@
   <header class="topbar">
     <a class="brand" href="#">Codespace</a>
     <div class="top-actions">
-      <button id="newProject" class="primary">Nouveau projet</button>
+      <button id="addFile">Nouveau fichier</button>
       <button id="exportProject">Exporter</button>
     </div>
   </header>
 
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="side-head">
-        <div>
-          <span class="eyebrow">Mes projets</span>
-          <h1 id="projectCount">0 projet</h1>
-        </div>
-        <button id="addProject" class="icon-button" aria-label="Créer un projet">+</button>
+  <main class="workspace">
+    <section class="project-head">
+      <div>
+        <span class="eyebrow">Workspace</span>
+        <h1 id="projectTitle">Mon espace</h1>
       </div>
-      <div id="projects" class="projects"></div>
-    </aside>
-
-    <section class="workspace">
-      <div class="workspace-head">
-        <div>
-          <span class="eyebrow">Éditeur</span>
-          <h2 id="projectTitle">Aucun projet</h2>
-        </div>
-        <div class="workspace-actions">
-          <button id="runProject" class="primary">▶ Aperçu</button>
-          <button id="deleteProject" class="danger">Supprimer</button>
-        </div>
+      <div class="project-actions">
+        <button id="renameProject">Renommer</button>
+        <button id="resetProject" class="danger">Tout supprimer</button>
       </div>
+    </section>
 
-      <div id="emptyState" class="empty-state">
-        <div class="empty-icon">&lt;/&gt;</div>
-        <h2>Bienvenue dans Codespace</h2>
-        <p>Crée ton premier projet HTML, CSS et JavaScript.</p>
-        <button id="emptyCreate" class="primary">Créer un projet</button>
+    <section class="editor-area">
+      <aside class="file-sidebar">
+        <div class="file-head">
+          <span>Fichiers</span>
+          <button id="quickAdd" aria-label="Ajouter un fichier">+</button>
+        </div>
+        <div id="files" class="files"></div>
+      </aside>
+
+      <div class="code-panel">
+        <div class="code-head">
+          <span id="currentFile">index.html</span>
+          <button id="deleteFile" class="delete-file">Supprimer</button>
+        </div>
+        <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
       </div>
 
-      <div id="editorArea" class="editor-area hidden">
-        <div class="filebar">
-          <button class="file active" data-file="html">index.html</button>
-          <button class="file" data-file="css">style.css</button>
-          <button class="file" data-file="js">script.js</button>
+      <div class="preview-panel">
+        <div class="preview-head">
+          <span>Aperçu</span>
+          <button id="refreshPreview">↻</button>
         </div>
-        <div class="editor-layout">
-          <div class="code-panel">
-            <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
-          </div>
-          <div class="preview-panel">
-            <div class="preview-head">
-              <span>Aperçu</span>
-              <button id="refreshPreview">↻</button>
-            </div>
-            <iframe id="preview" title="Aperçu du projet"></iframe>
-          </div>
-        </div>
+        <iframe id="preview" title="Aperçu du projet"></iframe>
       </div>
     </section>
   </main>
 
-  <div id="modal" class="modal hidden">
+  <div id="fileModal" class="modal hidden">
     <div class="modal-card">
-      <h2>Nouveau projet</h2>
-      <p>Donne un nom à ton projet.</p>
-      <input id="projectName" maxlength="40" placeholder="Mon projet">
+      <h2>Nouveau fichier</h2>
+      <p>Ajoute un fichier HTML, CSS ou JavaScript.</p>
+      <input id="fileName" maxlength="80" placeholder="exemple.html">
       <div class="modal-actions">
-        <button id="cancelModal">Annuler</button>
-        <button id="createProject" class="primary">Créer</button>
+        <button id="cancelFile">Annuler</button>
+        <button id="createFile" class="primary">Créer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="renameModal" class="modal hidden">
+    <div class="modal-card">
+      <h2>Nom du workspace</h2>
+      <input id="workspaceName" maxlength="40" placeholder="Mon espace">
+      <div class="modal-actions">
+        <button id="cancelRename">Annuler</button>
+        <button id="saveRename" class="primary">Enregistrer</button>
       </div>
     </div>
   </div>

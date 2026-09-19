@@ -289,38 +289,95 @@ function escapeHtml(value) {
 
 function highlightCode(source, name) {
   const type = fileType(name);
+
+  if (type === "HTML") {
+    let output = "";
+    let position = 0;
+    const tagPattern = /<!--[\s\S]*?-->|<!DOCTYPE[\s\S]*?>|<\/?[a-zA-Z][^>]*>/gi;
+
+    for (const match of source.matchAll(tagPattern)) {
+      output += escapeHtml(source.slice(position, match.index));
+      const raw = match[0];
+
+      if (/^<!--/.test(raw)) {
+        output += '<span class="token-comment">' + escapeHtml(raw) + "</span>";
+      } else if (/^<!DOCTYPE/i.test(raw)) {
+        output += '<span class="token-keyword">' + escapeHtml(raw) + "</span>";
+      } else {
+        const tagMatch = raw.match(/^(<\/?)([a-zA-Z][\w:-]*)([\s\S]*?)(\/?>)$/);
+
+        if (!tagMatch) {
+          output += escapeHtml(raw);
+        } else {
+          const open = escapeHtml(tagMatch[1]);
+          const tag = escapeHtml(tagMatch[2]);
+          const attrs = tagMatch[3];
+          const close = escapeHtml(tagMatch[4]);
+
+          let attrOutput = "";
+          let attrPosition = 0;
+          const attrPattern = /([a-zA-Z_:][\w:.-]*)(\s*=\s*)(".*?"|'.*?'|[^\s>]+)/g;
+
+          for (const attr of attrs.matchAll(attrPattern)) {
+            attrOutput += escapeHtml(attrs.slice(attrPosition, attr.index));
+            attrOutput += '<span class="token-attr">' + escapeHtml(attr[1]) + "</span>";
+            attrOutput += escapeHtml(attr[2]);
+            attrOutput += '<span class="token-string">' + escapeHtml(attr[3]) + "</span>";
+            attrPosition = attr.index + attr[0].length;
+          }
+
+          attrOutput += escapeHtml(attrs.slice(attrPosition));
+          output += open + '<span class="token-tag">' + tag + "</span>" + attrOutput + close;
+        }
+      }
+
+      position = match.index + raw.length;
+    }
+
+    output += escapeHtml(source.slice(position));
+    return output;
+  }
+
   const tokens = [];
   const store = value => {
     const id = tokens.length;
     tokens.push(value);
-    return "___CODESPACE_TOKEN_" + id + "___";
+    return "\u0000CODESPACE_TOKEN_" + id + "\u0000";
   };
 
   let value = escapeHtml(source);
 
-  if (type === "HTML") {
-    value = value.replace(/(&lt;!--[\s\S]*?--&gt;)/g, match => store('<span class="token-comment">' + match + "</span>"));
-    value = value.replace(/(&lt;\/?)([a-zA-Z][\w-]*)([^&]*?)(\/?&gt;)/g, (match, open, tag, attrs, close) => {
-      const highlightedAttrs = attrs.replace(/([a-zA-Z-:]+)(=)(&quot;.*?&quot;|&#39;.*?&#39;)/g, '<span class="token-attr">$1</span>$2<span class="token-string">$3</span>');
-      return open + '<span class="token-tag">' + tag + "</span>" + highlightedAttrs + close;
-    });
-  }
-
   if (type === "CSS") {
-    value = value.replace(/(\/\*[\s\S]*?\*\/)/g, match => store('<span class="token-comment">' + match + "</span>"));
-    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g, match => store('<span class="token-string">' + match + "</span>"));
-    value = value.replace(/([.#]?[a-zA-Z_-][\w-]*)(?=\s*\{)/g, '<span class="token-selector">$1</span>');
-    value = value.replace(/(--?[a-zA-Z-]+)(?=\s*:)/g, '<span class="token-property">$1</span>');
+    value = value.replace(/(\/\*[\s\S]*?\*\/)/g, match =>
+      store('<span class="token-comment">' + match + "</span>")
+    );
+    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g, match =>
+      store('<span class="token-string">' + match + "</span>")
+    );
+    value = value.replace(/(^|[}\s])([^{}]+)(?=\s*\{)/g, (match, before, selector) =>
+      before + '<span class="token-selector">' + selector + "</span>"
+    );
+    value = value.replace(/([a-zA-Z-][\w-]*)(?=\s*:)/g,
+      '<span class="token-property">$1</span>"
+    );
   }
 
   if (type === "JS") {
-    value = value.replace(/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g, match => store('<span class="token-comment">' + match + "</span>"));
-    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;|\`.*?\`)/g, match => store('<span class="token-string">' + match + "</span>"));
-    value = value.replace(/\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\b/g, '<span class="token-keyword">$1</span>');
-    value = value.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="token-number">$1</span>');
+    value = value.replace(/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g, match =>
+      store('<span class="token-comment">' + match + "</span>")
+    );
+    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;|\`.*?\`)/g, match =>
+      store('<span class="token-string">' + match + "</span>")
+    );
+    value = value.replace(/\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\b/g,
+      '<span class="token-keyword">$1</span>'
+    );
+    value = value.replace(/\b(\d+(?:\.\d+)?)\b/g,
+      '<span class="token-number">$1</span>'
+    );
   }
 
-  return value.replace(/___CODESPACE_TOKEN_(\d+)___/g, (_, id) => tokens[Number(id)]);
+  return value.replace(/\u0000CODESPACE_TOKEN_(\d+)\u0000/g, (_, id) => tokens[Number(id)]);
 }
 function updateHighlight() {
   if (!codeHighlight || !currentFile) return;

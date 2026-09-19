@@ -290,25 +290,25 @@ function highlightCode(source, name) {
 
   if (type === "HTML") {
     return escaped
-      .replace(/(&lt;!--[\\s\\S]*?--&gt;)/g, '<span class="token-comment">$1</span>')
-      .replace(/(&lt;\\/?)([a-zA-Z][\\w-]*)([^&]*?)(\\/?&gt;)/g, '$1<span class="token-tag">$2</span>$3$4')
+      .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="token-comment">$1</span>')
+      .replace(/(&lt;\/?)([a-zA-Z][\w-]*)([^&]*?)(\/?&gt;)/g, '$1<span class="token-tag">$2</span>$3$4')
       .replace(/([a-zA-Z-:]+)(=)(&quot;.*?&quot;|&#39;.*?&#39;)/g, '<span class="token-attr">$1</span>$2<span class="token-string">$3</span>');
   }
 
   if (type === "CSS") {
     return escaped
-      .replace(/(\/\\*[\\s\\S]*?\\*\/)/g, '<span class="token-comment">$1</span>')
+      .replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="token-comment">$1</span>')
       .replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g, '<span class="token-string">$1</span>')
-      .replace(/([.#]?[a-zA-Z_-][\\w-]*)(?=\\s*\\{)/g, '<span class="token-selector">$1</span>')
-      .replace(/(--?[a-zA-Z-]+)(?=\\s*:)/g, '<span class="token-property">$1</span>');
+      .replace(/([.#]?[a-zA-Z_-][\w-]*)(?=\s*\{)/g, '<span class="token-selector">$1</span>')
+      .replace(/(--?[a-zA-Z-]+)(?=\s*:)/g, '<span class="token-property">$1</span>');
   }
 
   if (type === "JS") {
     return escaped
-      .replace(/(\/\\*[\\s\\S]*?\\*\/|\\/\\/[^\\n]*)/g, '<span class="token-comment">$1</span>')
+      .replace(/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g, '<span class="token-comment">$1</span>')
       .replace(/(&quot;.*?&quot;|&#39;.*?&#39;|\`.*?\`)/g, '<span class="token-string">$1</span>')
-      .replace(/\\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\\b/g, '<span class="token-keyword">$1</span>')
-      .replace(/\\b(\\d+(?:\\.\\d+)?)\\b/g, '<span class="token-number">$1</span>');
+      .replace(/\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\b/g, '<span class="token-keyword">$1</span>')
+      .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="token-number">$1</span>');
   }
 
   return escaped;

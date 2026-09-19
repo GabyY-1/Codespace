@@ -65,22 +65,64 @@ function pathDepth(path) {
   return path.split("/").length - 1;
 }
 
+const collapsedFolders = new Set();
+
+function visiblePaths() {
+  const paths = new Set();
+
+  Object.keys(workspace.files).forEach(file => {
+    if (file.endsWith("/.codespace")) {
+      paths.add(file.slice(0, -11) + "/");
+    } else {
+      paths.add(file);
+      const parts = file.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        paths.add(parts.slice(0, i).join("/") + "/");
+      }
+    }
+  });
+
+  return [...paths]
+    .filter(path => {
+      const parts = path.split("/");
+      for (let i = 1; i < parts.length - 1; i++) {
+        const parent = parts.slice(0, i).join("/");
+        if (collapsedFolders.has(parent)) return false;
+      }
+      return true;
+    })
+    .sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+}
+
 function renderFiles() {
   filesEl.innerHTML = "";
   tabsEl.innerHTML = "";
 
-  const names = Object.keys(workspace.files).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  names.forEach(name => {
+  visiblePaths().forEach(path => {
+    const isFolder = path.endsWith("/");
+    const cleanPath = isFolder ? path.slice(0, -1) : path;
     const button = document.createElement("button");
-    button.className = "file" + (name === currentFile ? " active" : "");
-    button.textContent = name;
-    button.title = name;
-    button.style.paddingLeft = (12 + pathDepth(name) * 16) + "px";
-    button.addEventListener("click", () => selectFile(name));
+
+    button.className = "file" + (!isFolder && cleanPath === currentFile ? " active" : "");
+    button.textContent = (isFolder ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") : "  ") + cleanPath.split("/").pop();
+    button.title = cleanPath;
+    button.style.paddingLeft = (10 + pathDepth(cleanPath) * 16) + "px";
+
+    if (isFolder) {
+      button.classList.add("folder");
+      button.addEventListener("click", () => {
+        if (collapsedFolders.has(cleanPath)) collapsedFolders.delete(cleanPath);
+        else collapsedFolders.add(cleanPath);
+        renderFiles();
+      });
+    } else {
+      button.addEventListener("click", () => selectFile(cleanPath));
+    }
+
     filesEl.appendChild(button);
   });
 
-  if (currentFile && workspace.files[currentFile] !== undefined) {
+  if (currentFile && currentFile in workspace.files) {
     const tab = document.createElement("button");
     tab.className = "tab active";
     tab.textContent = currentFile;
@@ -89,7 +131,7 @@ function renderFiles() {
     tabsEl.appendChild(tab);
   }
 
-  const count = names.length;
+  const count = Object.keys(workspace.files).filter(name => !name.endsWith("/.codespace")).length;
   const countText = count + (count > 1 ? " fichiers" : " fichier");
   fileCount.textContent = countText;
   fileCountSide.textContent = countText;
@@ -209,7 +251,7 @@ function createFolder() {
   }
 
   const marker = name + "/.codespace";
-  if (workspace.files[marker] || Object.keys(workspace.files).some(path => path === name || path.startsWith(name + "/"))) {
+  if (marker in workspace.files || Object.keys(workspace.files).some(path => path === name || path.startsWith(name + "/"))) {
     alert("Ce dossier existe déjà.");
     return;
   }
@@ -273,15 +315,12 @@ async function importProject(file) {
     const zip = await JSZip.loadAsync(file);
     const imported = {};
 
-    const entries = Object.values(zip.files);
-    for (const entry of entries) {
-      if (entry.dir) continue;
-
+    for (const entry of Object.values(zip.files)) {
       const name = entry.name.replace(/^\.\//, "").replace(/\\/g, "/");
       if (!name || name.split("/").some(part => part === "..")) continue;
 
-      if (name.endsWith("/.codespace")) {
-        imported[name] = "";
+      if (entry.dir) {
+        imported[name.replace(/\/$/, "") + "/.codespace"] = "";
       } else {
         imported[name] = await entry.async("string");
       }
@@ -293,13 +332,14 @@ async function importProject(file) {
     }
 
     workspace.files = imported;
-    currentFile = Object.keys(imported).find(name => name.toLowerCase() === "index.html") || Object.keys(imported)[0];
+    currentFile = Object.keys(imported).find(name => name.toLowerCase() === "index.html") || Object.keys(imported).find(name => !name.endsWith("/.codespace")) || Object.keys(imported)[0];
 
     save();
     renderFiles();
     selectFile(currentFile);
     updatePreview();
-  } catch {
+  } catch (error) {
+    console.error(error);
     alert("Impossible de lire ce fichier ZIP.");
   }
 }

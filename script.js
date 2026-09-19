@@ -99,7 +99,7 @@ function allPaths() {
 
   for (const name of Object.keys(workspace.files)) {
     if (name.endsWith("/.codespace")) {
-      const folder = name.slice(0, -10);
+      const folder = name.slice(0, -11);
       if (folder) paths.add(folder + "/");
       continue;
     }

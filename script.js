@@ -36,25 +36,55 @@ function normalizeFile(value) {
   return { type: "text", data: "" };
 }
 
-function loadWorkspace() {
+function readSavedWorkspace(key) {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && saved.files && typeof saved.files === "object") {
-      const files = {};
-      for (const [name, value] of Object.entries(saved.files)) {
-        files[name] = normalizeFile(value);
-      }
-      return { name: String(saved.name || "Mon espace"), files };
-    }
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
   } catch {
-    localStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+    return null;
+  }
+}
+
+function loadWorkspace() {
+  const saved = readSavedWorkspace(STORAGE_KEY);
+
+  if (saved && saved.files && typeof saved.files === "object") {
+    const files = {};
+
+    for (const [name, value] of Object.entries(saved.files)) {
+      if (typeof name !== "string" || !name) continue;
+      files[name] = normalizeFile(value);
+    }
+
+    if (Object.keys(files).length) {
+      return {
+        name: String(saved.name || "Mon espace"),
+        files
+      };
+    }
   }
 
-  const old = JSON.parse(localStorage.getItem("codespace_workspace") || "null");
-  if (old && old.files) {
+  const old = readSavedWorkspace("codespace_workspace");
+
+  if (old && old.files && typeof old.files === "object") {
     const files = {};
-    for (const [name, value] of Object.entries(old.files)) files[name] = normalizeFile(value);
-    return { name: String(old.name || "Mon espace"), files };
+
+    for (const [name, value] of Object.entries(old.files)) {
+      if (typeof name === "string" && name) {
+        files[name] = normalizeFile(value);
+      }
+    }
+
+    if (Object.keys(files).length) {
+      return {
+        name: String(old.name || "Mon espace"),
+        files
+      };
+    }
   }
 
   return JSON.parse(JSON.stringify(defaultWorkspace));

@@ -62,7 +62,10 @@
         </div>
         <div class="editor-wrap">
           <div class="line-numbers" id="lineNumbers">1</div>
-          <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
+          <div class="code-stage">
+            <pre id="codeHighlight" aria-hidden="true"></pre>
+            <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
+          </div>
         </div>
         <div class="statusbar">
           <span id="languageLabel">HTML</span>

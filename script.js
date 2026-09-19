@@ -91,7 +91,7 @@ function fileType(name) {
 }
 
 function pathDepth(path) {
-  return path.split("/").length - 1;
+  return path.split("/").filter(Boolean).length - 1;
 }
 
 function allPaths() {
@@ -99,11 +99,13 @@ function allPaths() {
 
   for (const name of Object.keys(workspace.files)) {
     if (name.endsWith("/.codespace")) {
-      paths.add(name.slice(0, -11) + "/");
+      const folder = name.slice(0, -10);
+      if (folder) paths.add(folder + "/");
       continue;
     }
 
     paths.add(name);
+
     const parts = name.split("/");
     for (let i = 1; i < parts.length; i++) {
       paths.add(parts.slice(0, i).join("/") + "/");
@@ -113,35 +115,33 @@ function allPaths() {
   return [...paths];
 }
 
+function isFolderPath(path) {
+  return path.endsWith("/");
+}
+
+function isHiddenByCollapsedFolder(path) {
+  const clean = path.replace(/\\/$/, "");
+  const parts = clean.split("/");
+
+  for (let i = 1; i < parts.length; i++) {
+    const parent = parts.slice(0, i).join("/");
+    if (collapsedFolders.has(parent)) return true;
+  }
+
+  return false;
+}
+
 function visiblePaths() {
-  return allPaths()
-    .filter(path => {
-      const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path;
-      const parts = cleanPath.split("/");
+  const paths = allPaths();
 
-      for (let i = 1; i < parts.length; i++) {
-        const parent = parts.slice(0, i).join("/");
-        if (collapsedFolders.has(parent)) return false;
-      }
-
-      return true;
-    })
+  return paths
+    .filter(path => !isHiddenByCollapsedFolder(path))
     .sort((a, b) => {
-      const aParts = a.replace(/\/$/, "").split("/");
-      const bParts = b.replace(/\/$/, "").split("/");
-      const max = Math.max(aParts.length, bParts.length);
+      const aParts = a.replace(/\\/$/, "").split("/");
+      const bParts = b.replace(/\\/$/, "").split("/");
 
-      for (let i = 0; i < max; i++) {
-        if (aParts[i] === undefined) return -1;
-        if (bParts[i] === undefined) return 1;
-
+      for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
         if (aParts[i] !== bParts[i]) {
-          const aPath = aParts.slice(0, i + 1).join("/");
-          const bPath = bParts.slice(0, i + 1).join("/");
-          const aIsFolder = allPaths().includes(aPath + "/");
-          const bIsFolder = allPaths().includes(bPath + "/");
-
-          if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
           return aParts[i].localeCompare(bParts[i], undefined, {
             numeric: true,
             sensitivity: "base"
@@ -149,7 +149,11 @@ function visiblePaths() {
         }
       }
 
-      return a.endsWith("/") ? -1 : 1;
+      if (aParts.length !== bParts.length) {
+        return aParts.length - bParts.length;
+      }
+
+      return isFolderPath(a) ? -1 : 1;
     });
 }
 
@@ -157,33 +161,24 @@ function renderExplorer() {
   filesEl.innerHTML = "";
 
   for (const path of visiblePaths()) {
-    const isFolder = path.endsWith("/");
+    const isFolder = isFolderPath(path);
     const cleanPath = isFolder ? path.slice(0, -1) : path;
     const item = document.createElement("button");
 
     item.type = "button";
     item.className = "file" + (isFolder ? " folder" : "") + (cleanPath === currentFile ? " active" : "");
+    item.dataset.path = cleanPath;
+    item.dataset.type = isFolder ? "folder" : "file";
     item.style.paddingLeft = (10 + pathDepth(cleanPath) * 16) + "px";
     item.title = cleanPath;
-    item.textContent = (isFolder ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") : "  ") + cleanPath.split("/").pop();
 
-    if (isFolder) {
-      item.addEventListener("click", () => {
-        if (collapsedFolders.has(cleanPath)) collapsedFolders.delete(cleanPath);
-        else collapsedFolders.add(cleanPath);
-        renderExplorer();
-      });
-    } else {
-      item.addEventListener("click", () => openFile(cleanPath));
-    }
+    const label = cleanPath.split("/").pop();
+    item.textContent = isFolder
+      ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") + label
+      : "  " + label;
 
     filesEl.appendChild(item);
   }
-
-  const count = fileNames().length;
-  const label = count + (count > 1 ? " fichiers" : " fichier");
-  fileCount.textContent = label;
-  fileCountSide.textContent = label;
 }
 
 function renderTabs() {
@@ -314,9 +309,8 @@ function createFolder() {
   }
 
   const exists = Object.keys(workspace.files).some(path =>
-    path === name ||
     path === name + "/.codespace" ||
-    path.startsWith(name + "/")
+    path === name
   );
 
   if (exists) {
@@ -482,6 +476,23 @@ async function importProject(file) {
     alert("Impossible de lire ce fichier ZIP.");
   }
 }
+
+filesEl.addEventListener("click", event => {
+  const item = event.target.closest(".file");
+  if (!item || !filesEl.contains(item)) return;
+
+  const path = item.dataset.path;
+  if (!path) return;
+
+  if (item.dataset.type === "folder") {
+    if (collapsedFolders.has(path)) collapsedFolders.delete(path);
+    else collapsedFolders.add(path);
+    renderExplorer();
+    return;
+  }
+
+  openFile(path);
+});
 
 $("importProject").addEventListener("click", () => $("zipInput").click());
 

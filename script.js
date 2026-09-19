@@ -1,285 +1,393 @@
-const STORAGE_KEY = "codespace_workspace";
+const STORAGE_KEY = "codespace_workspace_v2";
 
 const defaultWorkspace = {
   name: "Mon espace",
   files: {
-    "index.html": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Mon site</title>\n</head>\n<body>\n  <h1>Bonjour Codespace</h1>\n</body>\n</html>",
-    "style.css": "body {\n  font-family: Arial, sans-serif;\n  padding: 40px;\n}\n",
-    "script.js": "console.log('Codespace');\n"
+    "index.html": { type: "text", data: "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Mon site</title>\n</head>\n<body>\n  <h1>Bonjour Codespace</h1>\n</body>\n</html>" },
+    "style.css": { type: "text", data: "body {\n  font-family: Arial, sans-serif;\n  padding: 40px;\n}\n" },
+    "script.js": { type: "text", data: "console.log('Codespace');\n" }
   }
 };
 
 let workspace = loadWorkspace();
-let currentFile = Object.keys(workspace.files)[0] || "index.html";
+let currentFile = "";
+let openFiles = [];
+const collapsedFolders = new Set();
 
-const filesEl = document.getElementById("files");
-const tabsEl = document.getElementById("tabs");
-const codeEditor = document.getElementById("codeEditor");
-const currentFileEl = document.getElementById("currentFile");
-const preview = document.getElementById("preview");
-const lineNumbers = document.getElementById("lineNumbers");
-const saveState = document.getElementById("saveState");
-const cursorPosition = document.getElementById("cursorPosition");
-const languageLabel = document.getElementById("languageLabel");
-const fileCount = document.getElementById("fileCount");
-const fileCountSide = document.getElementById("fileCountSide");
-const projectTitle = document.getElementById("projectTitle");
-const topWorkspaceName = document.getElementById("topWorkspaceName");
-const fileModal = document.getElementById("fileModal");
-const fileName = document.getElementById("fileName");
-const folderModal = document.getElementById("folderModal");
-const folderName = document.getElementById("folderName");
-const renameModal = document.getElementById("renameModal");
-const workspaceName = document.getElementById("workspaceName");
+const $ = id => document.getElementById(id);
+const filesEl = $("files");
+const tabsEl = $("tabs");
+const editor = $("codeEditor");
+const preview = $("preview");
+const currentFileEl = $("currentFile");
+const lineNumbers = $("lineNumbers");
+const saveState = $("saveState");
+const cursorPosition = $("cursorPosition");
+const languageLabel = $("languageLabel");
+const fileCount = $("fileCount");
+const fileCountSide = $("fileCountSide");
+const projectTitle = $("projectTitle");
+const topWorkspaceName = $("topWorkspaceName");
+
+function normalizeFile(value) {
+  if (typeof value === "string") return { type: "text", data: value };
+  if (value && value.type === "binary" && typeof value.data === "string") return value;
+  if (value && typeof value.data === "string") return { type: "text", data: value.data };
+  return { type: "text", data: "" };
+}
 
 function loadWorkspace() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && saved.files && typeof saved.files === "object") {
-      return { name: saved.name || "Mon espace", files: saved.files };
+      const files = {};
+      for (const [name, value] of Object.entries(saved.files)) {
+        files[name] = normalizeFile(value);
+      }
+      return { name: String(saved.name || "Mon espace"), files };
     }
   } catch {
     localStorage.removeItem(STORAGE_KEY);
   }
+
+  const old = JSON.parse(localStorage.getItem("codespace_workspace") || "null");
+  if (old && old.files) {
+    const files = {};
+    for (const [name, value] of Object.entries(old.files)) files[name] = normalizeFile(value);
+    return { name: String(old.name || "Mon espace"), files };
+  }
+
   return JSON.parse(JSON.stringify(defaultWorkspace));
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
-  saveState.textContent = "Enregistré";
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    saveState.textContent = "Enregistré";
+  } catch {
+    saveState.textContent = "Stockage plein";
+  }
 }
 
 function markUnsaved() {
   saveState.textContent = "Modification...";
 }
 
+function fileNames() {
+  return Object.keys(workspace.files).filter(name => !name.endsWith("/.codespace"));
+}
+
+function textOf(name) {
+  const file = workspace.files[name];
+  return file && file.type === "text" ? file.data : "";
+}
+
 function fileType(name) {
-  const extension = name.split(".").pop().toLowerCase();
-  if (extension === "html" || extension === "htm") return "HTML";
-  if (extension === "css") return "CSS";
-  if (extension === "js") return "JS";
-  return "FILE";
+  const ext = name.split(".").pop().toLowerCase();
+  if (ext === "html" || ext === "htm") return "HTML";
+  if (ext === "css") return "CSS";
+  if (ext === "js") return "JS";
+  return ext.toUpperCase() || "FILE";
 }
 
 function pathDepth(path) {
   return path.split("/").length - 1;
 }
 
-const collapsedFolders = new Set();
-
-function visiblePaths() {
+function allPaths() {
   const paths = new Set();
 
-  Object.keys(workspace.files).forEach(file => {
-    if (file.endsWith("/.codespace")) {
-      paths.add(file.slice(0, -11) + "/");
-    } else {
-      paths.add(file);
-      const parts = file.split("/");
-      for (let i = 1; i < parts.length; i++) {
-        paths.add(parts.slice(0, i).join("/") + "/");
-      }
+  for (const name of Object.keys(workspace.files)) {
+    if (name.endsWith("/.codespace")) {
+      paths.add(name.slice(0, -11) + "/");
+      continue;
     }
-  });
 
-  return [...paths]
+    paths.add(name);
+    const parts = name.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      paths.add(parts.slice(0, i).join("/") + "/");
+    }
+  }
+
+  return [...paths];
+}
+
+function visiblePaths() {
+  return allPaths()
     .filter(path => {
       const parts = path.split("/");
       for (let i = 1; i < parts.length - 1; i++) {
-        const parent = parts.slice(0, i).join("/");
-        if (collapsedFolders.has(parent)) return false;
+        if (collapsedFolders.has(parts.slice(0, i).join("/"))) return false;
       }
       return true;
     })
-    .sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+    .sort((a, b) => {
+      const aParts = a.split("/");
+      const bParts = b.split("/");
+      if (aParts.length !== bParts.length) return aParts.length - bParts.length;
+
+      const aFolder = a.endsWith("/");
+      const bFolder = b.endsWith("/");
+      if (aFolder !== bFolder) return aFolder ? -1 : 1;
+
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+    });
 }
 
-function renderFiles() {
+function renderExplorer() {
   filesEl.innerHTML = "";
-  tabsEl.innerHTML = "";
 
-  visiblePaths().forEach(path => {
+  for (const path of visiblePaths()) {
     const isFolder = path.endsWith("/");
     const cleanPath = isFolder ? path.slice(0, -1) : path;
-    const button = document.createElement("button");
+    const item = document.createElement("button");
 
-    button.className = "file" + (!isFolder && cleanPath === currentFile ? " active" : "");
-    button.textContent = (isFolder ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") : "  ") + cleanPath.split("/").pop();
-    button.title = cleanPath;
-    button.style.paddingLeft = (10 + pathDepth(cleanPath) * 16) + "px";
+    item.type = "button";
+    item.className = "file" + (isFolder ? " folder" : "") + (cleanPath === currentFile ? " active" : "");
+    item.style.paddingLeft = (10 + pathDepth(cleanPath) * 16) + "px";
+    item.title = cleanPath;
+    item.textContent = (isFolder ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") : "  ") + cleanPath.split("/").pop();
 
     if (isFolder) {
-      button.classList.add("folder");
-      button.addEventListener("click", () => {
+      item.addEventListener("click", () => {
         if (collapsedFolders.has(cleanPath)) collapsedFolders.delete(cleanPath);
         else collapsedFolders.add(cleanPath);
-        renderFiles();
+        renderExplorer();
       });
     } else {
-      button.addEventListener("click", () => selectFile(cleanPath));
+      item.addEventListener("click", () => openFile(cleanPath));
     }
 
-    filesEl.appendChild(button);
-  });
-
-  if (currentFile && currentFile in workspace.files) {
-    const tab = document.createElement("button");
-    tab.className = "tab active";
-    tab.textContent = currentFile;
-    tab.title = currentFile;
-    tab.addEventListener("click", () => selectFile(currentFile));
-    tabsEl.appendChild(tab);
+    filesEl.appendChild(item);
   }
 
-  const count = Object.keys(workspace.files).filter(name => !name.endsWith("/.codespace")).length;
-  const countText = count + (count > 1 ? " fichiers" : " fichier");
-  fileCount.textContent = countText;
-  fileCountSide.textContent = countText;
+  const count = fileNames().length;
+  const label = count + (count > 1 ? " fichiers" : " fichier");
+  fileCount.textContent = label;
+  fileCountSide.textContent = label;
 }
 
-function selectFile(name) {
-  if (!(name in workspace.files)) return;
+function renderTabs() {
+  tabsEl.innerHTML = "";
+
+  openFiles = openFiles.filter(name => name in workspace.files && !name.endsWith("/.codespace"));
+
+  for (const name of openFiles) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "tab" + (name === currentFile ? " active" : "");
+    tab.title = name;
+    tab.textContent = name.split("/").pop();
+
+    const close = document.createElement("span");
+    close.className = "tab-close";
+    close.textContent = "×";
+    close.addEventListener("click", event => {
+      event.stopPropagation();
+      closeTab(name);
+    });
+
+    tab.append(" ", close);
+    tab.addEventListener("click", () => openFile(name));
+    tabsEl.appendChild(tab);
+  }
+}
+
+function render() {
+  renderExplorer();
+  renderTabs();
+  projectTitle.textContent = workspace.name;
+  topWorkspaceName.textContent = workspace.name;
+}
+
+function openFile(name) {
+  if (!(name in workspace.files) || name.endsWith("/.codespace")) return;
+
   currentFile = name;
+  if (!openFiles.includes(name)) openFiles.push(name);
+
+  editor.value = textOf(name);
   currentFileEl.textContent = name;
-  codeEditor.value = workspace.files[name];
   languageLabel.textContent = fileType(name);
-  renderFiles();
+
   updateLineNumbers();
-  updateCursorPosition();
+  updateCursor();
+  render();
+}
+
+function closeTab(name) {
+  openFiles = openFiles.filter(file => file !== name);
+
+  if (name === currentFile) {
+    const next = openFiles[openFiles.length - 1] || fileNames()[0];
+    if (next) openFile(next);
+  } else {
+    renderTabs();
+  }
 }
 
 function updateLineNumbers() {
-  const lines = Math.max(1, codeEditor.value.split("\n").length);
+  const lines = Math.max(1, editor.value.split("\n").length);
   lineNumbers.textContent = Array.from({ length: lines }, (_, index) => index + 1).join("\n");
+  lineNumbers.scrollTop = editor.scrollTop;
 }
 
-function updateCursorPosition() {
-  const beforeCursor = codeEditor.value.slice(0, codeEditor.selectionStart);
-  const line = beforeCursor.split("\n").length;
-  const lastBreak = beforeCursor.lastIndexOf("\n");
-  const column = beforeCursor.length - lastBreak;
-  cursorPosition.textContent = "Ln " + line + ", Col " + column;
-}
-
-function updatePreview() {
-  const htmlName = Object.keys(workspace.files).find(name => name.toLowerCase() === "index.html");
-  if (!htmlName) {
-    preview.srcdoc = "<p style=\"font-family:Arial;padding:30px\">Ajoute un fichier index.html pour afficher l'aperçu.</p>";
-    return;
-  }
-
-  let source = workspace.files[htmlName];
-  const css = Object.entries(workspace.files)
-    .filter(([name]) => name.toLowerCase().endsWith(".css"))
-    .map(([, content]) => "<style>" + content + "</style>")
-    .join("");
-  const js = Object.entries(workspace.files)
-    .filter(([name]) => name.toLowerCase().endsWith(".js"))
-    .map(([, content]) => "<script>" + content.replace(/<\/script>/gi, "<\\/script>") + "<\/script>")
-    .join("");
-
-  if (source.includes("</head>")) source = source.replace("</head>", css + "</head>");
-  else source = css + source;
-
-  if (source.includes("</body>")) source = source.replace("</body>", js + "</body>");
-  else source += js;
-
-  preview.srcdoc = source;
+function updateCursor() {
+  const before = editor.value.slice(0, editor.selectionStart);
+  const line = before.split("\n").length;
+  const lastBreak = before.lastIndexOf("\n");
+  cursorPosition.textContent = "Ln " + line + ", Col " + (before.length - lastBreak);
 }
 
 function validFilePath(name) {
-  return name &&
+  return !!name &&
     !name.startsWith("/") &&
     !name.includes("\\") &&
     !name.split("/").some(part => !part || part === "." || part === "..") &&
-    /^[^:*?"<>|]+\.(html?|css|js)$/i.test(name);
+    !name.endsWith("/.codespace") &&
+    /^[^:*?"<>|]+\.(html?|css|js|json|txt|md|svg)$/i.test(name);
 }
 
 function validFolderPath(name) {
-  return name &&
+  return !!name &&
     !name.startsWith("/") &&
     !name.includes("\\") &&
     !name.split("/").some(part => !part || part === "." || part === "..") &&
     /^[^:*?"<>|/]+(?:\/[^:*?"<>|/]+)*$/.test(name);
 }
 
-function openFileModal() {
-  fileModal.classList.remove("hidden");
-  fileName.value = "";
-  fileName.focus();
+function openModal(id, inputId) {
+  $(id).classList.remove("hidden");
+  $(inputId).value = "";
+  $(inputId).focus();
 }
 
-function closeFileModal() {
-  fileModal.classList.add("hidden");
+function closeModal(id) {
+  $(id).classList.add("hidden");
 }
 
 function createFile() {
-  const name = fileName.value.trim();
+  const name = $("fileName").value.trim();
+
   if (!validFilePath(name)) {
-    alert("Utilise un chemin valide en .html, .css ou .js.");
+    alert("Utilise un chemin valide avec une extension prise en charge.");
     return;
   }
+
   if (name in workspace.files) {
     alert("Ce fichier existe déjà.");
     return;
   }
 
-  workspace.files[name] = "";
-  currentFile = name;
+  workspace.files[name] = { type: "text", data: "" };
   save();
-  renderFiles();
-  selectFile(name);
+  closeModal("fileModal");
+  openFile(name);
   updatePreview();
-  closeFileModal();
-}
-
-function openFolderModal() {
-  folderModal.classList.remove("hidden");
-  folderName.value = "";
-  folderName.focus();
-}
-
-function closeFolderModal() {
-  folderModal.classList.add("hidden");
 }
 
 function createFolder() {
-  const name = folderName.value.trim();
+  const name = $("folderName").value.trim();
+
   if (!validFolderPath(name)) {
     alert("Utilise un chemin de dossier valide.");
     return;
   }
 
-  const marker = name + "/.codespace";
-  if (marker in workspace.files || Object.keys(workspace.files).some(path => path === name || path.startsWith(name + "/"))) {
+  const exists = Object.keys(workspace.files).some(path =>
+    path === name ||
+    path === name + "/.codespace" ||
+    path.startsWith(name + "/")
+  );
+
+  if (exists) {
     alert("Ce dossier existe déjà.");
     return;
   }
 
-  workspace.files[marker] = "";
+  workspace.files[name + "/.codespace"] = { type: "text", data: "" };
   save();
-  renderFiles();
-  closeFolderModal();
-}
-
-function openRenameModal() {
-  workspaceName.value = workspace.name;
-  renameModal.classList.remove("hidden");
-  workspaceName.focus();
-}
-
-function closeRenameModal() {
-  renameModal.classList.add("hidden");
+  closeModal("folderModal");
+  render();
 }
 
 function renameWorkspace() {
-  const name = workspaceName.value.trim();
+  const name = $("workspaceName").value.trim();
   if (!name) return;
+
   workspace.name = name;
-  projectTitle.textContent = name;
-  topWorkspaceName.textContent = name;
   save();
-  closeRenameModal();
+  closeModal("renameModal");
+  render();
+}
+
+function mime(name) {
+  const ext = name.split(".").pop().toLowerCase();
+  return {
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    ico: "image/x-icon",
+    svg: "image/svg+xml",
+    woff: "font/woff",
+    woff2: "font/woff2",
+    ttf: "font/ttf",
+    otf: "font/otf"
+  }[ext] || "application/octet-stream";
+}
+
+function replaceAssets(source, assets) {
+  for (const [path, url] of Object.entries(assets)) {
+    source = source.split('"' + path + '"').join('"' + url + '"');
+    source = source.split("'" + path + "'").join("'" + url + "'");
+    source = source.split('"./' + path + '"').join('"' + url + '"');
+    source = source.split("'./" + path + "'").join("'" + url + "'");
+  }
+
+  return source;
+}
+
+function updatePreview() {
+  const htmlName = fileNames().find(name => name.toLowerCase() === "index.html");
+
+  if (!htmlName) {
+    preview.srcdoc = "<p style='font-family:Arial;padding:30px'>Ajoute un fichier index.html pour afficher l'aperçu.</p>";
+    return;
+  }
+
+  let source = textOf(htmlName);
+
+  const css = fileNames()
+    .filter(name => /\.css$/i.test(name))
+    .map(name => "<style>" + textOf(name) + "</style>")
+    .join("");
+
+  const js = fileNames()
+    .filter(name => /\.js$/i.test(name))
+    .map(name => "<script>" + textOf(name).replace(/<\/script>/gi, "<\\/script>") + "</script>")
+    .join("");
+
+  const assets = {};
+
+  for (const name of fileNames()) {
+    const file = workspace.files[name];
+    if (file.type === "binary") {
+      assets[name] = "data:" + mime(name) + ";base64," + file.data;
+    }
+  }
+
+  source = replaceAssets(source, assets);
+
+  if (/<\/head>/i.test(source)) source = source.replace(/<\/head>/i, css + "</head>");
+  else source = css + source;
+
+  if (/<\/body>/i.test(source)) source = source.replace(/<\/body>/i, js + "</body>");
+  else source += js;
+
+  preview.srcdoc = source;
 }
 
 async function exportProject() {
@@ -289,22 +397,27 @@ async function exportProject() {
   }
 
   const zip = new JSZip();
-  for (const [name, content] of Object.entries(workspace.files)) {
+
+  for (const [name, file] of Object.entries(workspace.files)) {
     if (name.endsWith("/.codespace")) {
       zip.folder(name.slice(0, -11));
+    } else if (file.type === "binary") {
+      zip.file(name, file.data, { base64: true });
     } else {
-      zip.file(name, content);
+      zip.file(name, file.data);
     }
   }
 
   const blob = await zip.generateAsync({ type: "blob" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
+
   link.href = url;
   link.download = (workspace.name || "codespace").replace(/[^a-z0-9_-]+/gi, "-") + ".zip";
   document.body.appendChild(link);
   link.click();
   link.remove();
+
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -317,26 +430,34 @@ async function importProject(file) {
 
     for (const entry of Object.values(zip.files)) {
       const name = entry.name.replace(/^\.\//, "").replace(/\\/g, "/");
+
       if (!name || name.split("/").some(part => part === "..")) continue;
 
       if (entry.dir) {
-        imported[name.replace(/\/$/, "") + "/.codespace"] = "";
+        imported[name.replace(/\/$/, "") + "/.codespace"] = { type: "text", data: "" };
+        continue;
+      }
+
+      if (/\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf)$/i.test(name)) {
+        imported[name] = { type: "binary", data: await entry.async("base64") };
       } else {
-        imported[name] = await entry.async("string");
+        imported[name] = { type: "text", data: await entry.async("string") };
       }
     }
 
-    if (!Object.keys(imported).length) {
+    const usable = Object.keys(imported).filter(name => !name.endsWith("/.codespace"));
+
+    if (!usable.length) {
       alert("Le ZIP ne contient aucun fichier exploitable.");
       return;
     }
 
     workspace.files = imported;
-    currentFile = Object.keys(imported).find(name => name.toLowerCase() === "index.html") || Object.keys(imported).find(name => !name.endsWith("/.codespace")) || Object.keys(imported)[0];
+    openFiles = [];
 
+    const first = usable.find(name => name.toLowerCase() === "index.html") || usable[0];
     save();
-    renderFiles();
-    selectFile(currentFile);
+    openFile(first);
     updatePreview();
   } catch (error) {
     console.error(error);
@@ -344,76 +465,116 @@ async function importProject(file) {
   }
 }
 
-document.getElementById("importProject").addEventListener("click", () => {
-  document.getElementById("zipInput").click();
-});
+$("importProject").addEventListener("click", () => $("zipInput").click());
 
-document.getElementById("zipInput").addEventListener("change", event => {
-  const file = event.target.files[0];
-  importProject(file);
+$("zipInput").addEventListener("change", event => {
+  importProject(event.target.files[0]);
   event.target.value = "";
 });
 
-document.getElementById("exportProject").addEventListener("click", exportProject);
-document.getElementById("addFile").addEventListener("click", openFileModal);
-document.getElementById("addFolder").addEventListener("click", openFolderModal);
-document.getElementById("cancelFile").addEventListener("click", closeFileModal);
-document.getElementById("createFile").addEventListener("click", createFile);
-document.getElementById("cancelFolder").addEventListener("click", closeFolderModal);
-document.getElementById("createFolder").addEventListener("click", createFolder);
-document.getElementById("refreshPreview").addEventListener("click", updatePreview);
+$("exportProject").addEventListener("click", exportProject);
+$("addFile").addEventListener("click", () => openModal("fileModal", "fileName"));
+$("addFolder").addEventListener("click", () => openModal("folderModal", "folderName"));
+$("cancelFile").addEventListener("click", () => closeModal("fileModal"));
+$("cancelFolder").addEventListener("click", () => closeModal("folderModal"));
+$("createFile").addEventListener("click", createFile);
+$("createFolder").addEventListener("click", createFolder);
+$("refreshPreview").addEventListener("click", updatePreview);
 
-document.getElementById("deleteFile").addEventListener("click", () => {
-  const names = Object.keys(workspace.files);
+$("renameProject").addEventListener("click", () => {
+  $("workspaceName").value = workspace.name;
+  $("renameModal").classList.remove("hidden");
+  $("workspaceName").focus();
+});
+
+$("cancelRename").addEventListener("click", () => closeModal("renameModal"));
+$("saveRename").addEventListener("click", renameWorkspace);
+
+$("resetProject").addEventListener("click", () => {
+  if (!confirm("Supprimer tous les fichiers du workspace ?")) return;
+
+  workspace.files = {
+    "index.html": { type: "text", data: "" }
+  };
+
+  openFiles = [];
+  currentFile = "";
+  save();
+  openFile("index.html");
+  updatePreview();
+});
+
+$("deleteFile").addEventListener("click", () => {
+  const names = fileNames();
+
   if (names.length <= 1) {
     alert("Un workspace doit garder au moins un fichier.");
     return;
   }
+
   if (!confirm("Supprimer " + currentFile + " ?")) return;
 
   delete workspace.files[currentFile];
-  currentFile = Object.keys(workspace.files)[0];
+  openFiles = openFiles.filter(name => name !== currentFile);
+  currentFile = "";
+
   save();
-  renderFiles();
-  selectFile(currentFile);
+  openFile(openFiles[openFiles.length - 1] || fileNames()[0]);
   updatePreview();
 });
 
-document.getElementById("renameProject").addEventListener("click", openRenameModal);
-document.getElementById("cancelRename").addEventListener("click", closeRenameModal);
-document.getElementById("saveRename").addEventListener("click", renameWorkspace);
+for (const id of ["fileModal", "folderModal", "renameModal"]) {
+  $(id).addEventListener("click", event => {
+    if (event.target === $(id)) closeModal(id);
+  });
+}
 
-document.getElementById("resetProject").addEventListener("click", () => {
-  if (!confirm("Supprimer tous les fichiers du workspace ?")) return;
-  workspace.files = { "index.html": "" };
-  currentFile = "index.html";
-  save();
-  renderFiles();
-  selectFile(currentFile);
-  updatePreview();
+$("fileName").addEventListener("keydown", event => {
+  if (event.key === "Enter") createFile();
+  if (event.key === "Escape") closeModal("fileModal");
 });
 
-codeEditor.addEventListener("input", () => {
-  workspace.files[currentFile] = codeEditor.value;
+$("folderName").addEventListener("keydown", event => {
+  if (event.key === "Enter") createFolder();
+  if (event.key === "Escape") closeModal("folderModal");
+});
+
+$("workspaceName").addEventListener("keydown", event => {
+  if (event.key === "Enter") renameWorkspace();
+  if (event.key === "Escape") closeModal("renameModal");
+});
+
+editor.addEventListener("input", () => {
+  if (!currentFile || !workspace.files[currentFile]) return;
+
+  workspace.files[currentFile] = {
+    type: "text",
+    data: editor.value
+  };
+
   markUnsaved();
   updateLineNumbers();
-  updateCursorPosition();
+  updateCursor();
   save();
   updatePreview();
 });
 
-codeEditor.addEventListener("click", updateCursorPosition);
-codeEditor.addEventListener("keyup", updateCursorPosition);
+editor.addEventListener("click", updateCursor);
+editor.addEventListener("keyup", updateCursor);
+editor.addEventListener("scroll", () => {
+  lineNumbers.scrollTop = editor.scrollTop;
+});
 
-codeEditor.addEventListener("keydown", event => {
+editor.addEventListener("keydown", event => {
   if (event.key === "Tab") {
     event.preventDefault();
-    const start = codeEditor.selectionStart;
-    const end = codeEditor.selectionEnd;
-    codeEditor.value = codeEditor.value.slice(0, start) + "  " + codeEditor.value.slice(end);
-    codeEditor.selectionStart = start + 2;
-    codeEditor.selectionEnd = start + 2;
-    codeEditor.dispatchEvent(new Event("input"));
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+
+    editor.value = editor.value.slice(0, start) + "  " + editor.value.slice(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    editor.dispatchEvent(new Event("input"));
   }
 
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
@@ -423,35 +584,18 @@ codeEditor.addEventListener("keydown", event => {
   }
 });
 
-fileName.addEventListener("keydown", event => {
-  if (event.key === "Enter") createFile();
-  if (event.key === "Escape") closeFileModal();
-});
-
-folderName.addEventListener("keydown", event => {
-  if (event.key === "Enter") createFolder();
-  if (event.key === "Escape") closeFolderModal();
-});
-
-workspaceName.addEventListener("keydown", event => {
-  if (event.key === "Enter") renameWorkspace();
-  if (event.key === "Escape") closeRenameModal();
-});
-
-fileModal.addEventListener("click", event => {
-  if (event.target === fileModal) closeFileModal();
-});
-
-folderModal.addEventListener("click", event => {
-  if (event.target === folderModal) closeFolderModal();
-});
-
-renameModal.addEventListener("click", event => {
-  if (event.target === renameModal) closeRenameModal();
-});
-
 projectTitle.textContent = workspace.name;
 topWorkspaceName.textContent = workspace.name;
-renderFiles();
-selectFile(currentFile);
+
+const firstFile =
+  fileNames().find(name => name.toLowerCase() === "index.html") ||
+  fileNames()[0];
+
+if (firstFile) {
+  openFile(firstFile);
+} else {
+  workspace.files["index.html"] = { type: "text", data: "" };
+  openFile("index.html");
+}
+
 updatePreview();

@@ -251,6 +251,9 @@ function render() {
   renderTabs();
   projectTitle.textContent = workspace.name;
   topWorkspaceName.textContent = workspace.name;
+  const count = fileNames().length;
+  fileCount.textContent = count + (count === 1 ? " fichier" : " fichiers");
+  fileCountSide.textContent = count + (count === 1 ? " fichier" : " fichiers");
 }
 
 function openFile(name) {
@@ -296,32 +299,32 @@ function highlightCode(source, name) {
   let value = escapeHtml(source);
 
   if (type === "HTML") {
-    value = value.replace(/(&lt;!--[\\s\\S]*?--&gt;)/g, match => store('<span class="token-comment">' + match + "</span>"));
-    value = value.replace(/(&lt;\\/?)([a-zA-Z][\\w-]*)([^&]*?)(\\/?&gt;)/g, (match, open, tag, attrs, close) => {
+    value = value.replace(/(&lt;!--[\s\S]*?--&gt;)/g, match => store('<span class="token-comment">' + match + "</span>"));
+    value = value.replace(/(&lt;\/?)([a-zA-Z][\w-]*)([^&]*?)(\/?&gt;)/g, (match, open, tag, attrs, close) => {
       const highlightedAttrs = attrs.replace(/([a-zA-Z-:]+)(=)(&quot;.*?&quot;|&#39;.*?&#39;)/g, '<span class="token-attr">$1</span>$2<span class="token-string">$3</span>');
       return open + '<span class="token-tag">' + tag + "</span>" + highlightedAttrs + close;
     });
   }
 
   if (type === "CSS") {
-    value = value.replace(/(\\/\\*[\\s\\S]*?\\*\\/)/g, match => store('<span class="token-comment">' + match + "</span>"));
+    value = value.replace(/(\/\*[\s\S]*?\*\/)/g, match => store('<span class="token-comment">' + match + "</span>"));
     value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;)/g, match => store('<span class="token-string">' + match + "</span>"));
-    value = value.replace(/([.#]?[a-zA-Z_-][\\w-]*)(?=\\s*\\{)/g, '<span class="token-selector">$1</span>');
-    value = value.replace(/(--?[a-zA-Z-]+)(?=\\s*:)/g, '<span class="token-property">$1</span>');
+    value = value.replace(/([.#]?[a-zA-Z_-][\w-]*)(?=\s*\{)/g, '<span class="token-selector">$1</span>');
+    value = value.replace(/(--?[a-zA-Z-]+)(?=\s*:)/g, '<span class="token-property">$1</span>');
   }
 
   if (type === "JS") {
-    value = value.replace(/(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*)/g, match => store('<span class="token-comment">' + match + "</span>"));
-    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;|\\`.*?\\`)/g, match => store('<span class="token-string">' + match + "</span>"));
-    value = value.replace(/\\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\\b/g, '<span class="token-keyword">$1</span>');
-    value = value.replace(/\\b(\\d+(?:\\.\\d+)?)\\b/g, '<span class="token-number">$1</span>');
+    value = value.replace(/(\/\*[\s\S]*?\*\/|\/\/[^\n]*)/g, match => store('<span class="token-comment">' + match + "</span>"));
+    value = value.replace(/(&quot;.*?&quot;|&#39;.*?&#39;|\`.*?\`)/g, match => store('<span class="token-string">' + match + "</span>"));
+    value = value.replace(/\b(const|let|var|function|return|if|else|for|while|new|class|extends|import|from|export|async|await|true|false|null|undefined)\b/g, '<span class="token-keyword">$1</span>');
+    value = value.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="token-number">$1</span>');
   }
 
   return value.replace(/___CODESPACE_TOKEN_(\\d+)___/g, (_, id) => tokens[Number(id)]);
 }
 function updateHighlight() {
   if (!codeHighlight || !currentFile) return;
-  codeHighlight.innerHTML = highlightCode(editor.value, currentFile) + "\\n";
+  codeHighlight.innerHTML = highlightCode(editor.value, currentFile) + "\n";
   codeHighlight.scrollTop = editor.scrollTop;
   codeHighlight.scrollLeft = editor.scrollLeft;
 }

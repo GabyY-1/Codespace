@@ -120,7 +120,7 @@ function isFolderPath(path) {
 }
 
 function isHiddenByCollapsedFolder(path) {
-  const clean = path.replace(/\\/$/, "");
+  const clean = path.endsWith("/") ? path.slice(0, -1) : path;
   const parts = clean.split("/");
 
   for (let i = 1; i < parts.length; i++) {
@@ -137,8 +137,8 @@ function visiblePaths() {
   return paths
     .filter(path => !isHiddenByCollapsedFolder(path))
     .sort((a, b) => {
-      const aParts = a.replace(/\\/$/, "").split("/");
-      const bParts = b.replace(/\\/$/, "").split("/");
+      const aParts = (a.endsWith("/") ? a.slice(0, -1) : a).split("/");
+      const bParts = (b.endsWith("/") ? b.slice(0, -1) : b).split("/");
 
       for (let i = 0; i < Math.min(aParts.length, bParts.length); i++) {
         if (aParts[i] !== bParts[i]) {

@@ -202,32 +202,15 @@ function renderExplorer() {
     item.style.paddingLeft = (10 + pathDepth(cleanPath) * 16) + "px";
     item.title = cleanPath;
 
+    if (!isFolder) item.draggable = true;
+
     const label = cleanPath.split("/").pop();
 
     if (isFolder) {
       const folderLabel = document.createElement("span");
       folderLabel.textContent = (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") + label;
       folderLabel.className = "folder-label";
-
-      const deleteButton = document.createElement("span");
-      deleteButton.className = "folder-delete";
-      deleteButton.textContent = "×";
-      deleteButton.title = "Supprimer le dossier";
-      deleteButton.setAttribute("role", "button");
-      deleteButton.tabIndex = 0;
-
-      const remove = event => {
-        event.preventDefault();
-        event.stopPropagation();
-        deleteFolder(cleanPath);
-      };
-
-      deleteButton.addEventListener("click", remove);
-      deleteButton.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") remove(event);
-      });
-
-      item.append(folderLabel, deleteButton);
+      item.appendChild(folderLabel);
     } else {
       item.textContent = "  " + label;
     }
@@ -474,6 +457,31 @@ function renameFile(filePath) {
   save();
   render();
   if (currentFile) openFile(currentFile);
+  updatePreview();
+}
+
+function moveFile(filePath, targetFolder) {
+  if (!(filePath in workspace.files) || filePath.endsWith("/.codespace")) return;
+
+  const fileName = filePath.split("/").pop();
+  const targetPath = targetFolder ? targetFolder + "/" + fileName : fileName;
+
+  if (targetPath === filePath) return;
+
+  if (workspace.files[targetPath]) {
+    alert("Un fichier avec ce nom existe déjà à cet emplacement.");
+    return;
+  }
+
+  workspace.files[targetPath] = workspace.files[filePath];
+  delete workspace.files[filePath];
+
+  openFiles = openFiles.map(name => name === filePath ? targetPath : name);
+
+  if (currentFile === filePath) currentFile = targetPath;
+
+  save();
+  render();
   updatePreview();
 }
 
@@ -786,6 +794,51 @@ async function importProject(file) {
     alert("Impossible de lire ce fichier ZIP.");
   }
 }
+
+filesEl.addEventListener("dragstart", event => {
+  const item = event.target.closest(".file");
+  if (!item || !filesEl.contains(item) || item.dataset.type !== "file") return;
+
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/codespace-file", item.dataset.path);
+});
+
+filesEl.addEventListener("dragover", event => {
+  const item = event.target.closest(".file.folder");
+
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+
+  for (const folder of filesEl.querySelectorAll(".file.folder")) {
+    folder.classList.remove("drop-target");
+  }
+
+  if (item) item.classList.add("drop-target");
+});
+
+filesEl.addEventListener("dragleave", event => {
+  if (!filesEl.contains(event.relatedTarget)) {
+    for (const folder of filesEl.querySelectorAll(".file.folder")) {
+      folder.classList.remove("drop-target");
+    }
+  }
+});
+
+filesEl.addEventListener("drop", event => {
+  event.preventDefault();
+
+  const filePath = event.dataTransfer.getData("text/codespace-file");
+  if (!filePath) return;
+
+  const item = event.target.closest(".file.folder");
+  const targetFolder = item && filesEl.contains(item) ? item.dataset.path : "";
+
+  for (const folder of filesEl.querySelectorAll(".file.folder")) {
+    folder.classList.remove("drop-target");
+  }
+
+  moveFile(filePath, targetFolder);
+});
 
 filesEl.addEventListener("click", event => {
   const item = event.target.closest(".file");

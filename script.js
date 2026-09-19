@@ -445,6 +445,107 @@ function renameFolder(folderPath) {
   updatePreview();
 }
 
+function renameFile(filePath) {
+  const nextName = prompt("Nouveau nom du fichier :", filePath);
+
+  if (nextName === null) return;
+
+  const cleanName = nextName.trim();
+
+  if (!validFilePath(cleanName)) {
+    alert("Nom de fichier invalide.");
+    return;
+  }
+
+  if (cleanName === filePath) return;
+
+  if (workspace.files[cleanName]) {
+    alert("Un fichier avec ce nom existe déjà.");
+    return;
+  }
+
+  workspace.files[cleanName] = workspace.files[filePath];
+  delete workspace.files[filePath];
+
+  openFiles = openFiles.map(name => name === filePath ? cleanName : name);
+
+  if (currentFile === filePath) currentFile = cleanName;
+
+  save();
+  render();
+  if (currentFile) openFile(currentFile);
+  updatePreview();
+}
+
+function showFileMenu(filePath, x, y) {
+  const oldMenu = document.querySelector(".context-menu");
+  if (oldMenu) oldMenu.remove();
+
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - 190)) + "px";
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - 170)) + "px";
+
+  const options = [
+    ["Ouvrir", () => openFile(filePath)],
+    ["Renommer", () => renameFile(filePath)],
+    ["Supprimer", () => deleteFileFromMenu(filePath)]
+  ];
+
+  for (const [label, action] of options) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.textContent = label;
+    option.className = label === "Supprimer" ? "context-danger" : "";
+    option.addEventListener("click", event => {
+      event.stopPropagation();
+      menu.remove();
+      action();
+    });
+    menu.appendChild(option);
+  }
+
+  document.body.appendChild(menu);
+
+  const close = event => {
+    if (!menu.contains(event.target)) {
+      menu.remove();
+      document.removeEventListener("mousedown", close);
+    }
+  };
+
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+}
+
+function deleteFileFromMenu(filePath) {
+  const names = fileNames();
+
+  if (names.length <= 1) {
+    alert("Un workspace doit garder au moins un fichier.");
+    return;
+  }
+
+  if (!confirm("Supprimer " + filePath + " ?")) return;
+
+  delete workspace.files[filePath];
+  openFiles = openFiles.filter(name => name !== filePath);
+
+  if (currentFile === filePath) {
+    currentFile = "";
+    const next = openFiles[openFiles.length - 1] || fileNames()[0];
+    save();
+
+    if (next) {
+      openFile(next);
+    }
+  } else {
+    save();
+    render();
+  }
+
+  updatePreview();
+}
+
 function showFolderMenu(folderPath, x, y) {
   const oldMenu = document.querySelector(".context-menu");
   if (oldMenu) oldMenu.remove();
@@ -704,12 +805,21 @@ filesEl.addEventListener("click", event => {
 });
 
 filesEl.addEventListener("contextmenu", event => {
-  const item = event.target.closest(".file.folder");
+  const item = event.target.closest(".file");
   if (!item || !filesEl.contains(item)) return;
 
   event.preventDefault();
   event.stopPropagation();
-  showFolderMenu(item.dataset.path, event.clientX, event.clientY);
+
+  const path = item.dataset.path;
+  if (!path) return;
+
+  if (item.dataset.type === "folder") {
+    showFolderMenu(path, event.clientX, event.clientY);
+    return;
+  }
+
+  showFileMenu(path, event.clientX, event.clientY);
 });
 
 $("importProject").addEventListener("click", () => $("zipInput").click());

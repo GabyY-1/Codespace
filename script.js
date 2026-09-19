@@ -116,22 +116,40 @@ function allPaths() {
 function visiblePaths() {
   return allPaths()
     .filter(path => {
-      const parts = path.split("/");
-      for (let i = 1; i < parts.length - 1; i++) {
-        if (collapsedFolders.has(parts.slice(0, i).join("/"))) return false;
+      const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path;
+      const parts = cleanPath.split("/");
+
+      for (let i = 1; i < parts.length; i++) {
+        const parent = parts.slice(0, i).join("/");
+        if (collapsedFolders.has(parent)) return false;
       }
+
       return true;
     })
     .sort((a, b) => {
-      const aParts = a.split("/");
-      const bParts = b.split("/");
-      if (aParts.length !== bParts.length) return aParts.length - bParts.length;
+      const aParts = a.replace(/\/$/, "").split("/");
+      const bParts = b.replace(/\/$/, "").split("/");
+      const max = Math.max(aParts.length, bParts.length);
 
-      const aFolder = a.endsWith("/");
-      const bFolder = b.endsWith("/");
-      if (aFolder !== bFolder) return aFolder ? -1 : 1;
+      for (let i = 0; i < max; i++) {
+        if (aParts[i] === undefined) return -1;
+        if (bParts[i] === undefined) return 1;
 
-      return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+        if (aParts[i] !== bParts[i]) {
+          const aPath = aParts.slice(0, i + 1).join("/");
+          const bPath = bParts.slice(0, i + 1).join("/");
+          const aIsFolder = allPaths().includes(aPath + "/");
+          const bIsFolder = allPaths().includes(bPath + "/");
+
+          if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1;
+          return aParts[i].localeCompare(bParts[i], undefined, {
+            numeric: true,
+            sensitivity: "base"
+          });
+        }
+      }
+
+      return a.endsWith("/") ? -1 : 1;
     });
 }
 

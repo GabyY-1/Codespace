@@ -358,7 +358,7 @@ function highlightCode(source, name) {
       before + '<span class="token-selector">' + selector + "</span>"
     );
     value = value.replace(/([a-zA-Z-][\w-]*)(?=\s*:)/g,
-      '<span class="token-property">$1</span>"
+      '<span class="token-property">$1</span>'
     );
   }
 

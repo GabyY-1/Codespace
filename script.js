@@ -328,7 +328,9 @@ function updateHighlight() {
 
 function updateLineNumbers() {
   const lines = Math.max(1, editor.value.split("\n").length);
-  lineNumbers.textContent = Array.from({ length: lines }, (_, index) => index + 1).join("\n");
+  lineNumbers.innerHTML = Array.from({ length: lines }, (_, index) =>
+    '<span class="line-number">' + (index + 1) + "</span>"
+  ).join("");
   lineNumbers.scrollTop = editor.scrollTop;
   updateHighlight();
 }

@@ -86,7 +86,7 @@ h1 { font-size: 21px; margin-top: 4px; }
 .subtle-danger { border-color: transparent; background: transparent; padding: 5px 7px; font-size: 11px; white-space: nowrap; }
 
 .editor-wrap { min-height: 0; flex: 1; display: grid; grid-template-columns: 45px minmax(0, 1fr); overflow: hidden; }
-.line-numbers { padding: 18px 9px 18px 0; border-right: 1px solid #1c2028; background: #090b0f; color: #555d6b; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 13px; line-height: 21.45px; text-align: right; user-select: none; white-space: pre; overflow: hidden; }
+.line-numbers { padding: 18px 9px 18px 0; border-right: 1px solid #1c2028; background: #090b0f; color: #555d6b; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 13px; font-weight: 400; line-height: 21px; letter-spacing: normal; word-spacing: normal; text-align: right; user-select: none; white-space: pre; overflow: hidden; }
 .code-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #codeHighlight, #codeEditor {
   position: absolute;
@@ -98,16 +98,21 @@ h1 { font-size: 21px; margin-top: 4px; }
   border: 0;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
-  line-height: 21.45px;
+  font-weight: 400;
+  line-height: 21px;
+  letter-spacing: normal;
+  word-spacing: normal;
   tab-size: 2;
   white-space: pre;
   overflow: auto;
 }
 #codeHighlight {
+  display: block;
   color: #dce1ea;
   pointer-events: none;
 }
 #codeEditor {
+  display: block;
   resize: none;
   outline: 0;
   background: transparent;

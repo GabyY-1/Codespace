@@ -203,9 +203,34 @@ function renderExplorer() {
     item.title = cleanPath;
 
     const label = cleanPath.split("/").pop();
-    item.textContent = isFolder
-      ? (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") + label
-      : "  " + label;
+
+    if (isFolder) {
+      const folderLabel = document.createElement("span");
+      folderLabel.textContent = (collapsedFolders.has(cleanPath) ? "▸ " : "▾ ") + label;
+      folderLabel.className = "folder-label";
+
+      const deleteButton = document.createElement("span");
+      deleteButton.className = "folder-delete";
+      deleteButton.textContent = "×";
+      deleteButton.title = "Supprimer le dossier";
+      deleteButton.setAttribute("role", "button");
+      deleteButton.tabIndex = 0;
+
+      const remove = event => {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteFolder(cleanPath);
+      };
+
+      deleteButton.addEventListener("click", remove);
+      deleteButton.addEventListener("keydown", event => {
+        if (event.key === "Enter" || event.key === " ") remove(event);
+      });
+
+      item.append(folderLabel, deleteButton);
+    } else {
+      item.textContent = "  " + label;
+    }
 
     filesEl.appendChild(item);
   }
@@ -352,6 +377,47 @@ function createFolder() {
   save();
   closeModal("folderModal");
   render();
+}
+
+function deleteFolder(folderPath) {
+  const prefix = folderPath + "/";
+  const entries = Object.keys(workspace.files).filter(name =>
+    name === folderPath + "/.codespace" || name.startsWith(prefix)
+  );
+
+  if (!entries.length) return;
+
+  const count = entries.filter(name => !name.endsWith("/.codespace")).length;
+  const message = count
+    ? "Supprimer le dossier \"" + folderPath + "\" et ses " + count + " fichier(s) ?"
+    : "Supprimer le dossier \"" + folderPath + "\" ?";
+
+  if (!confirm(message)) return;
+
+  for (const name of entries) {
+    delete workspace.files[name];
+  }
+
+  openFiles = openFiles.filter(name => !entries.includes(name));
+  collapsedFolders.delete(folderPath);
+
+  if (currentFile && entries.includes(currentFile)) {
+    currentFile = "";
+    const next = openFiles[openFiles.length - 1] || fileNames()[0];
+
+    if (next) {
+      save();
+      openFile(next);
+    } else {
+      workspace.files["index.html"] = { type: "text", data: "" };
+      save();
+      openFile("index.html");
+    }
+  } else {
+    save();
+    render();
+    updatePreview();
+  }
 }
 
 function renameWorkspace() {

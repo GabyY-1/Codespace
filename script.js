@@ -379,6 +379,119 @@ function createFolder() {
   render();
 }
 
+function renameFolder(folderPath) {
+  const nextName = prompt("Nouveau nom du dossier :", folderPath);
+
+  if (nextName === null) return;
+
+  const cleanName = nextName.trim();
+
+  if (!validFolderPath(cleanName)) {
+    alert("Nom de dossier invalide.");
+    return;
+  }
+
+  if (cleanName === folderPath) return;
+
+  const sourcePrefix = folderPath + "/";
+  const targetPrefix = cleanName + "/";
+
+  const conflict = Object.keys(workspace.files).some(name =>
+    name === cleanName + "/.codespace" ||
+    name.startsWith(targetPrefix)
+  );
+
+  if (conflict) {
+    alert("Un dossier avec ce nom existe déjà.");
+    return;
+  }
+
+  const entries = Object.keys(workspace.files).filter(name =>
+    name === folderPath + "/.codespace" || name.startsWith(sourcePrefix)
+  );
+
+  if (!entries.length) return;
+
+  const renamed = {};
+
+  for (const name of entries) {
+    const nextPath = name === folderPath + "/.codespace"
+      ? cleanName + "/.codespace"
+      : targetPrefix + name.slice(sourcePrefix.length);
+
+    renamed[nextPath] = workspace.files[name];
+    delete workspace.files[name];
+  }
+
+  Object.assign(workspace.files, renamed);
+
+  openFiles = openFiles.map(name =>
+    name === folderPath || name.startsWith(sourcePrefix)
+      ? targetPrefix + name.slice(sourcePrefix.length)
+      : name
+  );
+
+  if (currentFile === folderPath || currentFile.startsWith(sourcePrefix)) {
+    currentFile = targetPrefix + currentFile.slice(sourcePrefix.length);
+  }
+
+  if (collapsedFolders.has(folderPath)) {
+    collapsedFolders.delete(folderPath);
+    collapsedFolders.add(cleanName);
+  }
+
+  save();
+  render();
+  updatePreview();
+}
+
+function showFolderMenu(folderPath, x, y) {
+  const oldMenu = document.querySelector(".context-menu");
+  if (oldMenu) oldMenu.remove();
+
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  menu.style.left = Math.max(8, Math.min(x, window.innerWidth - 190)) + "px";
+  menu.style.top = Math.max(8, Math.min(y, window.innerHeight - 170)) + "px";
+
+  const options = [
+    ["Ouvrir", () => {
+      collapsedFolders.delete(folderPath);
+      renderExplorer();
+    }],
+    ["Replier", () => {
+      collapsedFolders.add(folderPath);
+      renderExplorer();
+    }],
+    ["Renommer", () => renameFolder(folderPath)],
+    ["Supprimer", () => deleteFolder(folderPath)]
+  ];
+
+  for (const [label, action] of options) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.textContent = label;
+    option.className = label === "Supprimer" ? "context-danger" : "";
+    option.addEventListener("click", event => {
+      event.stopPropagation();
+      menu.remove();
+      action();
+    });
+    menu.appendChild(option);
+  }
+
+  document.body.appendChild(menu);
+
+  const close = event => {
+    if (!menu.contains(event.target)) {
+      menu.remove();
+      document.removeEventListener("mousedown", close);
+    }
+  };
+
+  setTimeout(() => document.addEventListener("mousedown", close), 0);
+}
+
 function deleteFolder(folderPath) {
   const prefix = folderPath + "/";
   const entries = Object.keys(workspace.files).filter(name =>
@@ -588,6 +701,15 @@ filesEl.addEventListener("click", event => {
   }
 
   openFile(path);
+});
+
+filesEl.addEventListener("contextmenu", event => {
+  const item = event.target.closest(".file.folder");
+  if (!item || !filesEl.contains(item)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  showFolderMenu(item.dataset.path, event.clientX, event.clientY);
 });
 
 $("importProject").addEventListener("click", () => $("zipInput").click());

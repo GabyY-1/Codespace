@@ -87,7 +87,8 @@ h1 { font-size: 21px; margin-top: 4px; }
 
 .editor-wrap { min-height: 0; flex: 1; display: grid; grid-template-columns: 45px minmax(0, 1fr); overflow: hidden; }
 .line-numbers { padding: 18px 9px 18px 0; border-right: 1px solid #1c2028; background: #090b0f; color: #555d6b; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 13px; font-weight: 400; line-height: 21px; letter-spacing: normal; word-spacing: normal; text-align: right; user-select: none; white-space: normal; overflow: hidden; }
-.code-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }\n.line-number { display: block; height: 21px; line-height: 21px; }
+.code-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.line-number { display: block; height: 21px; line-height: 21px; }
 #codeHighlight, #codeEditor {
   position: absolute;
   inset: 0;

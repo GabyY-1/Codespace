@@ -320,7 +320,7 @@ function highlightCode(source, name) {
     value = value.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="token-number">$1</span>');
   }
 
-  return value.replace(/___CODESPACE_TOKEN_(\\d+)___/g, (_, id) => tokens[Number(id)]);
+  return value.replace(/___CODESPACE_TOKEN_(\d+)___/g, (_, id) => tokens[Number(id)]);
 }
 function updateHighlight() {
   if (!codeHighlight || !currentFile) return;

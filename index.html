@@ -13,10 +13,10 @@
       <span class="brand-separator">/</span>
       <span class="brand-workspace" id="topWorkspaceName">Mon espace</span>
     </div>
-
     <div class="top-actions">
-      <button id="addFile">+ Fichier</button>
-      <button id="exportProject" class="primary">Exporter</button>
+      <button id="importProject">Importer</button>
+      <button id="exportProject" class="primary">Exporter ZIP</button>
+      <input id="zipInput" type="file" accept=".zip,application/zip" hidden>
     </div>
   </header>
 
@@ -29,7 +29,6 @@
           <button id="renameProject" class="icon-button" aria-label="Renommer le workspace">✎</button>
         </div>
       </div>
-
       <div class="workspace-meta">
         <span id="fileCount">3 fichiers</span>
         <span class="dot"></span>
@@ -44,14 +43,16 @@
             <span class="section-title">EXPLORATEUR</span>
             <span id="fileCountSide">3 fichiers</span>
           </div>
-          <button id="quickAdd" class="icon-button" aria-label="Ajouter un fichier">+</button>
+          <div class="file-head-actions">
+            <button id="addFolder" class="icon-button" aria-label="Créer un dossier">+</button>
+            <button id="addFile" class="icon-button" aria-label="Créer un fichier">F</button>
+          </div>
         </div>
         <div id="files" class="files"></div>
       </aside>
 
       <section class="editor-panel">
         <div class="tabs" id="tabs"></div>
-
         <div class="editor-toolbar">
           <span id="currentFile">index.html</span>
           <div class="editor-actions">
@@ -59,12 +60,10 @@
             <button id="deleteFile" class="subtle-danger">Supprimer</button>
           </div>
         </div>
-
         <div class="editor-wrap">
           <div class="line-numbers" id="lineNumbers">1</div>
           <textarea id="codeEditor" spellcheck="false" aria-label="Éditeur de code"></textarea>
         </div>
-
         <div class="statusbar">
           <span id="languageLabel">HTML</span>
           <span>Espaces: 2</span>
@@ -99,11 +98,29 @@
         </div>
         <button id="cancelFile" class="close-button" aria-label="Fermer">×</button>
       </div>
-      <p>Crée un fichier HTML, CSS ou JavaScript dans ton workspace.</p>
-      <label for="fileName">Nom du fichier</label>
-      <input id="fileName" maxlength="80" autocomplete="off" placeholder="exemple.html">
+      <p>Crée un fichier dans ton workspace. Tu peux utiliser un chemin comme <strong>pages/contact.html</strong>.</p>
+      <label for="fileName">Chemin du fichier</label>
+      <input id="fileName" maxlength="160" autocomplete="off" placeholder="pages/exemple.html">
       <div class="modal-actions">
         <button id="createFile" class="primary">Créer le fichier</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-top">
+        <div>
+          <span class="modal-label">Dossier</span>
+          <h2>Nouveau dossier</h2>
+        </div>
+        <button id="cancelFolder" class="close-button" aria-label="Fermer">×</button>
+      </div>
+      <p>Crée un dossier dans le workspace. Les dossiers peuvent être imbriqués.</p>
+      <label for="folderName">Chemin du dossier</label>
+      <input id="folderName" maxlength="160" autocomplete="off" placeholder="assets/images">
+      <div class="modal-actions">
+        <button id="createFolder" class="primary">Créer le dossier</button>
       </div>
     </div>
   </div>
@@ -126,6 +143,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

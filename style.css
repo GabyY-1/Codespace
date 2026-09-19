@@ -70,10 +70,9 @@ h1 { font-size: 21px; margin-top: 4px; }
 .file { width: 100%; min-width: 0; text-align: left; padding: 9px 10px; background: transparent; border-color: transparent; color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file:hover { background: var(--panel-2); color: var(--text); }
 .file.active { background: var(--panel-2); border-color: #303846; color: var(--text); }
-.file.folder { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.file.folder { display: flex; align-items: center; justify-content: flex-start; gap: 8px; }
+.file.folder.drop-target { background: var(--panel-2); border-color: var(--accent); color: var(--text); }
 .folder-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.folder-delete { flex: 0 0 auto; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 5px; color: var(--muted); font-size: 15px; line-height: 1; }
-.folder-delete:hover, .folder-delete:focus-visible { color: var(--danger); background: rgba(255, 95, 109, .1); }
 
 .editor-panel { min-width: 0; min-height: 0; background: #0a0c10; display: flex; flex-direction: column; overflow: hidden; }
 .tabs { min-width: 0; height: 45px; display: flex; align-items: stretch; overflow-x: auto; background: #0e1016; border-bottom: 1px solid var(--border); }
